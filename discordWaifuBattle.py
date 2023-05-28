@@ -9,6 +9,27 @@ import threading
 import re
 import json
 
+# card_database = [
+#     {
+#      "url":"https://e0.pxfuel.com/wallpapers/524/906/desktop-wallpaper-best-waifu-chika-fujiwara-love-is-war-2020-anime-waifu-thumbnail.jpg", "tag":"base" ,"owner":"base"
+#      },
+#     {
+#      "url":"https://w0.peakpx.com/wallpaper/1020/514/HD-wallpaper-chizuru-mizuhara-anime-best-waifu-big-oppai-girl-rent-a-girlfriend-waifu-thumbnail.jpg", "tag":"base" ,"owner":"base"
+#     },
+#      {
+#       "url":"https://w7.pngwing.com/pngs/97/193/png-transparent-nezuko-waifu-senyor-thumbnail.png", "tag":"base" ,"owner":"base"
+#      },
+#      {
+#       "url":"https://e7.pngegg.com/pngimages/906/702/png-clipart-anime-board-waifu-anime-cg-artwork-cartoon.png", "tag":"base" ,"owner":"base"
+#      },
+#      {
+#       "url":"https://i.redd.it/anime-waifu-v0-0kvzp0q70nha1.png?width=3072&format=png&auto=webp&s=60993640f0418bd479bb53e7ed503c9d2ffba107", "tag":"base" ,"owner":"base"
+#      },
+#     {
+#      "url":"https://i.waifu.pics/3DpVCc3.jpg", "tag":"base" ,"owner":"base"
+#     },
+#     ]
+
 class Player:
     name = ""
     
@@ -18,18 +39,15 @@ class Player:
     field = ""
     vote = -1
     
-    def __init__(self, name):
-        global players
+    def __init__(self, name, index):
         self.name = name
-        self.index = len(players)
-        players.append(self)
+        self.index = index
     
     def addCard(self, card):
         self.cards.append(card)
         
     def playCard(self, index):
         _card = self.cards.pop(index)
-        # add to
         self.field = _card
         
     def registerVote(self, vote):
@@ -52,61 +70,24 @@ class WaifuBattleGame:
     
     def save_json_db(self):
         with open(self.JSON_FILE_NAME,"w") as file:
-            json.dump(card_database, file) 
+            json.dump(self.card_database, file) 
         
     def load_json_db(self):
-        global card_database
         with open(self.JSON_FILE_NAME,"r") as file:
-            card_database = json.load(file)
+            self.card_database = json.load(file)
         
     def add_card(self, url, tag, owner):
-        global card_database
         self.card_database.append({"url":url,"tag":tag,"owner":owner})
         self.save_json_db()
     
     
     def __init__(self):
         self.load_json_db()
-        
 
-
-# card_database = [
-#     {
-#      "url":"https://e0.pxfuel.com/wallpapers/524/906/desktop-wallpaper-best-waifu-chika-fujiwara-love-is-war-2020-anime-waifu-thumbnail.jpg", "tag":"base" ,"owner":"base"
-#      },
-#     {
-#      "url":"https://w0.peakpx.com/wallpaper/1020/514/HD-wallpaper-chizuru-mizuhara-anime-best-waifu-big-oppai-girl-rent-a-girlfriend-waifu-thumbnail.jpg", "tag":"base" ,"owner":"base"
-#     },
-#      {
-#       "url":"https://w7.pngwing.com/pngs/97/193/png-transparent-nezuko-waifu-senyor-thumbnail.png", "tag":"base" ,"owner":"base"
-#      },
-#      {
-#       "url":"https://e7.pngegg.com/pngimages/906/702/png-clipart-anime-board-waifu-anime-cg-artwork-cartoon.png", "tag":"base" ,"owner":"base"
-#      },
-#      {
-#       "url":"https://i.redd.it/anime-waifu-v0-0kvzp0q70nha1.png?width=3072&format=png&auto=webp&s=60993640f0418bd479bb53e7ed503c9d2ffba107", "tag":"base" ,"owner":"base"
-#      },
-#     {
-#      "url":"https://i.waifu.pics/3DpVCc3.jpg", "tag":"base" ,"owner":"base"
-#     },
-#     ]
-
-# game_database = []
-
-
-
-
-    
-
-    
     def configure(self, play_rounds = 4, cards = card_database, selected_type = "", selected_timer = 60.0, allowed_cards = ""):
-        # global rounds, playing_cards, allow_join, players, current_round, game_type, timer, game_database
         self.rounds = play_rounds
         self.current_round = 0
         self.players = []
-        # field = []
-        # playing_cards = cards.copy()
-        # allow_join = True
         self.game_type = selected_type
         self.timer = selected_timer
         if allowed_cards == "":
@@ -115,13 +96,14 @@ class WaifuBattleGame:
             self.playing_cards =  self.card_database.copy()
         
     def join(self, name):
-        # global rounds, playing_cards, allow_join
         if  self.current_round > 0:
             return("Game is in progress")
         if len( self.playing_cards) <  self.rounds:
             return("Not enough cards left!")
         
-        p = Player(name)
+        p = Player(name, len(self.players))
+        self.players.append(p)
+        
         for i in range( self.rounds):
             p.addCard( self.playing_cards.pop(random.randint(0, len( self.playing_cards)-1)))
         self.display_hand(p)
@@ -150,9 +132,7 @@ class WaifuBattleGame:
             player.registerVote(int(card_index))
             
     def start(self):
-        # global allow_join, current_round, players, timer_value, voting
         self.timer_value =  self.timer
-        # allow_join = False
         self.current_round += 1
         for player in  self.players:
             player.vote = -1
@@ -168,13 +148,11 @@ class WaifuBattleGame:
         # choose()
         
     def force_end(self):
-        # global current_round, timer_value
         self.timer_value = 0
         self.current_round =  self.rounds + 1
         self.game_end()
         
     def round_end(self):
-        # global current_round, players, rounds
         self.current_round += 1
         field = []
         for player in  self.players:
@@ -186,6 +164,7 @@ class WaifuBattleGame:
         self.display_field(field)
         
         # announce current mode
+        self.voting = True
         self.display_mode()
         
         # voting time!
@@ -194,7 +173,6 @@ class WaifuBattleGame:
         # vote()
         
     def collect_votes(self):
-        # global players
         votes = []
         for player in self.players:
             votes.append(0)
@@ -220,11 +198,13 @@ class WaifuBattleGame:
         
         # announce round and current mode
         self.display_round()
+        self.voting = False
         self.display_mode()
         
         for p in self.players:
             self.display_hand(p)
         
+        # choosing time
         t = threading.Timer(1, self.run_timer)
         t.start()
         
@@ -232,7 +212,6 @@ class WaifuBattleGame:
         self.display_scores()
         
     def display_mode(self):
-        # global timer
         mode_str = ""
         if self.voting:
             mode_str += "Vote"
@@ -283,17 +262,16 @@ class WaifuBattleGame:
         print(f"{time_left}")
             
     def run_timer(self):
-        # global timer, timer_value, voting
         self.time_left = int(self.timer_value)
         end_timer = False
         
         if self.voting:
             # check if everyone voted
-            if all([player.vote >= 0 for player in players]):
+            if all([player.vote >= 0 for player in self.players]):
                 end_timer = True
         else:
             # check if everyone chose a card
-            if all([player.field != "" for player in players]):
+            if all([player.field != "" for player in self.players]):
                 end_timer = True
         if self.time_left < 1:
                 end_timer = True
@@ -303,7 +281,7 @@ class WaifuBattleGame:
                 self.collect_votes()
             else:
                 self.round_end()
-            self.voting = not self.voting
+            # self.voting = not self.voting
             self.timer_value = self.timer
             return(0)
         

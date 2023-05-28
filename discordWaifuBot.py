@@ -8,9 +8,10 @@ Created on Sun May 28 10:58:57 2023
 import discordWaifuBattle as wb
 
 # testing
-wb.configure(selected_timer=6.0)
-wb.join("alice")
-wb.start()
+game = wb.WaifuBattleGame()
+game.configure(selected_timer=4.0)
+game.join("alice")
+game.start()
 
 
 #%% discord bot

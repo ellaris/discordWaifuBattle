@@ -21,6 +21,7 @@ from discord import app_commands
 
 import subprocess
 import sys
+import time
 
 # import nest_asyncio
 # nest_asyncio.apply()
@@ -36,9 +37,54 @@ tree = app_commands.CommandTree(bot)
 
 @bot.event
 async def on_ready():
+    # await tree.set_translator()
     await tree.sync()
     await bot.change_presence(activity=discord.Activity(type=discord.ActivityType.listening, name=' waifu requests'))
     print(f"{bot.user} has connected to Discord!")
+    
+    
+class SpamView(discord.ui.View):
+    
+    # owner = None
+    # def __init__(self,*,owner):
+    #     super().__init__()
+    #     self.owner = owner
+
+    @discord.ui.button(label="Yes")
+    async def yes(self, interaction: discord.Interaction, button: discord.ui.Button):
+        self.value = "Y"
+        self.stop()
+        return await interaction.response.send_message("Nah, I'm done with you",ephemeral=True, delete_after= 10.0)
+
+    @discord.ui.button(label="No")
+    async def no(self, interaction: discord.Interaction, button: discord.ui.Button):
+        self.value = "N"
+        self.stop()
+        return await interaction.response.send_message("Ok I'll stop bothering you",ephemeral=True, delete_after= 10.0)
+
+# Commands
+@tree.command(name="spam", description="Spam me with invisible messages")
+async def spam(interaction):
+    await interaction.response.send_message(content="Ok",ephemeral=True, delete_after= 2.0)
+    time.sleep(2)
+    webhook = interaction.followup
+    msg = await webhook.send(wait=True, content="How do you like it now?",ephemeral=True)
+    time.sleep(2)
+    
+    # await webhook.delete()
+    # view = discord.ui.View()
+    # btn = discord.ui.Button(label="Yes")
+    # view.add_item(btn)
+    # btn = discord.ui.Button(label="No")
+    # view.add_item(btn)
+    view = SpamView()
+    await msg.delete()
+    msg = await webhook.send(wait=True, content="Want me to keep going?",ephemeral=True, view = view)
+    await view.wait()
+    print(view.value)
+    await msg.delete()
+    
+    
     
 # Commands
 @tree.command(name="token", description="Generate a waifu token")
@@ -46,8 +92,8 @@ async def token(interaction, prompt: str = "girl", border: str = None):
     """
     Token image generation
     
-    :param prompt: comma seperated descriptors (eg. green, short hair, armor)
-    :param border: ring, wavey, octagon, flat, double
+    :param prompt: Comma seperated descriptors (eg. green, short hair, armor)
+    :param border: Border type to surround the token with
     
     :return: tokenized image
     """
@@ -91,7 +137,7 @@ async def token(interaction, prompt: str = "girl", border: str = None):
                 embed = discord.Embed(colour= 5500000,description=content)
                 embed.set_image(url=f"attachment://{image_file}")
                 embed.set_author(name=user.name,icon_url=user.avatar.url)
-                embed.set_thumbnail(bot.user.avatar.url)
+                embed.set_thumbnail(url=bot.user.avatar.url)
                 
                 await interaction.channel.send(file=file, embed=embed)
             else:
@@ -101,6 +147,29 @@ async def token(interaction, prompt: str = "girl", border: str = None):
             print(e)
     # Reset the status
     await bot.change_presence(activity=previous_status)
+    
+# autocomplete
+@token.autocomplete('border')
+async def border_autocomplete(
+    interaction: discord.Interaction,
+    current: str,
+) -> list[app_commands.Choice[str]]:
+    borders = ["ring", "wavey", "octagon", "flat", "double"]
+    return [
+        app_commands.Choice(name=border, value=border)
+        for border in borders if current.lower() in border.lower()
+    ]
+
+@token.autocomplete('prompt')
+async def prompt_autocomplete(
+    interaction: discord.Interaction,
+    current: str,
+) -> list[app_commands.Choice[str]]:
+    prompts = ["1girl, small breasts, green, dress", "1girl, small breasts, yellow, blouse, skirt", "1girl, small breasts, brown, leather armor", "1girl, small breasts, red, weapon, armor", "1girl, small breasts, purple, robe, witch hat, magic"]
+    return [
+        app_commands.Choice(name=prompt, value=prompt)
+        for prompt in prompts if current.lower() in prompt.lower()
+    ]
     
 bot.run(DISCORD_TOKEN)
 

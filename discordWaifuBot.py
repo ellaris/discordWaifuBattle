@@ -13,6 +13,97 @@ game.configure(selected_timer=4.0)
 game.join("alice")
 game.start()
 
+#%% Sample app
+
+import os, discord
+from discord.ext import commands
+from discord import app_commands
+
+import subprocess
+import sys
+
+# import nest_asyncio
+# nest_asyncio.apply()
+
+DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
+
+intents = discord.Intents.default()
+intents.message_content = True
+
+# bot = commands.Bot(command_prefix="/",intents=intents)
+bot = discord.Client(intents=intents)
+tree = app_commands.CommandTree(bot)
+
+@bot.event
+async def on_ready():
+    await tree.sync()
+    await bot.change_presence(activity=discord.Activity(type=discord.ActivityType.listening, name=' waifu requests'))
+    print(f"{bot.user} has connected to Discord!")
+    
+# Commands
+@tree.command(name="token", description="Generate a waifu token")
+async def token(interaction, prompt: str = "girl", border: str = None):
+    """
+    Token image generation
+    
+    :param prompt: comma seperated descriptors (eg. green, short hair, armor)
+    :param border: ring, wavey, octagon, flat, double
+    
+    :return: tokenized image
+    """
+    # ctx = await discord.ext.commands.Context(interaction)
+    # channel = ctx.message.channel
+    # emoji = '\N{THUMBS UP SIGN}'
+    # or '\U0001f44d' or '👍'
+    # await ctx.message.add_reaction(emoji)
+
+    user = interaction.user
+    previous_status = bot.guilds[0].get_member(bot.user.id).activity
+    await interaction.response.send_message(content=f"Generating a token for you: {prompt} in {border}",ephemeral = True, delete_after= 10.0)
+    
+    # Change activity for the task
+    await bot.change_presence(activity=discord.Activity(type=discord.ActivityType.watching, name=' waifu being born'))
+    
+    
+    async with interaction.channel.typing():
+    # Long Calculation
+        image_file = "token.png"
+        try:
+            args = [sys.executable,"temp.py"]
+            if prompt:
+                args.append(prompt)
+            else:
+                args.append("")
+            if border:
+                args.append(border)
+            else:
+                args.append("")
+            print(prompt)
+            print(border)
+            image_generated = subprocess.call(args)
+            print("image generated")
+            if image_generated == 0:
+                file = discord.File(image_file, filename=image_file)
+                content = f"{user.name} here is your: {prompt}"
+                if border:
+                    content += f" in a {border} border"
+                    
+                embed = discord.Embed(colour= 5500000,description=content)
+                embed.set_image(url=f"attachment://{image_file}")
+                embed.set_author(name=user.name,icon_url=user.avatar.url)
+                embed.set_thumbnail(bot.user.avatar.url)
+                
+                await interaction.channel.send(file=file, embed=embed)
+            else:
+                await interaction.channel.send(content="Waifu couldn't be born ",ephemeral = True, delete_after = 10.0)
+        except Exception as e:
+            print("ERROR")
+            print(e)
+    # Reset the status
+    await bot.change_presence(activity=previous_status)
+    
+bot.run(DISCORD_TOKEN)
+
 
 #%% discord bot
 

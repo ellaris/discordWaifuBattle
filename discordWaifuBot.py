@@ -23,6 +23,7 @@ class DiscordPlayer(Player):
 class WaifuBattleGameBot(WaifuBattleGame):
     
     print_stack = []
+    message = None
     
     # def __init__(self):
         # super().__init__()
@@ -46,10 +47,27 @@ class WaifuBattleGameBot(WaifuBattleGame):
         super().configure(play_rounds, cards, selected_type, selected_timer, allowed_cards)
         self.game_channel = channel
         
-    async def sendPrintStack(self, embeds = None):
+    async def sendPrintStack(self, embeds = None, view = None, new_message = False):
         content = "\n".join(self.print_stack)
         self.print_stack = []
-        await self.game_channel.send(content=content, embeds = embeds)
+        if new_message or not self.message:
+            if embeds and view:
+                self.message = await self.game_channel.send(content=content, embeds = embeds, view = view)
+            elif embeds:
+                self.message = await self.game_channel.send(content=content, embeds = embeds)
+            elif view:
+                self.message = await self.game_channel.send(content=content, view = view)
+            else:
+                self.message = await self.game_channel.send(content=content)
+        else:
+            if embeds and view:
+                await self.message.edit(content = content, embeds = embeds, view = view)
+            elif embeds:
+                await self.message.edit(content = content, embeds = embeds)
+            elif view:
+                await self.message.edit(content = content, view = view)
+            else:
+                await self.message.edit(content = content)
         
         
     def display_mode(self):
@@ -85,12 +103,12 @@ class WaifuBattleGameBot(WaifuBattleGame):
             embed = discord.Embed()
             embed.set_image(url=card)
             embeds.append(embed)
-            button = discord.ui.Button(label = str(i))
+            button = ChooseVoteButton(value= i, view = view, label = str(i))
             # button.callback = lambda (name: discord.user): self.vote(name,i)
             view.add_item(button)
             
         self.print_stack.append(field_str)
-        loop.create_task( self.sendPrintStack(embeds=embeds))
+        loop.create_task( self.sendPrintStack(embeds=embeds, view = view, new_message=True))
         
     def display_scores(self, compact=False):
         sorted_players = sorted(self.players, key = lambda player: player.score, reverse=True)
@@ -113,8 +131,7 @@ class WaifuBattleGameBot(WaifuBattleGame):
             embed = discord.Embed()
             embed.set_image(url=card)
             embeds.append(embed)
-            button = discord.ui.Button(label = str(i))
-            button.callback = lambda interaction: player.playCard(i)
+            button = ChooseVoteButton(value= i, view = view, label = str(i))
             view.add_item(button)
             
         # self.print_stack.append(hand_str)
@@ -131,6 +148,15 @@ class WaifuBattleGameBot(WaifuBattleGame):
         self.print_stack.append(f"{time_left}")
         loop.create_task( self.sendPrintStack())
         
+    def start(self):
+        loop.create_task( self.sendPrintStack(new_message=True))
+        super().start()
+        
+    # def round_end(self):
+    #     global loop
+    #     loop = asyncio.get_event_loop()
+    #     super().round_end()
+    
     # async def collect_votes(self):
         # await super().collect_votes()
     
@@ -171,6 +197,24 @@ async def on_ready():
     await bot.change_presence(activity=discord.Activity(type=discord.ActivityType.listening, name=' waifu requests'))
     print(f"{bot.user} has connected to Discord!")
     
+class ChooseVoteButton(discord.ui.Button):
+    
+    view = None
+    
+    def __init__(self, value, view, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.value = value
+        self.view = view
+        
+    async def callback(self, interaciton: discord.Interaction):
+        username = interaciton.user.name
+        if game.voting:
+            game.vote(username, self.value)
+            await interaciton.response.send_message(content= f"voted for {self.value}",ephemeral = True, delete_after = 5)
+        else:
+            game.choose(username, self.value)
+            await interaciton.response.send_message(content= f"{self.value} chosen",ephemeral = True, delete_after = 5)
+        self.view.stop()
     
 class JoinView(discord.ui.View):
     
@@ -197,7 +241,8 @@ class JoinView(discord.ui.View):
         # self.value = "N"
         game.start()
         self.stop()
-        return await interaction.response.send_message("Let The Waifu Battles Begin!")
+        # await interaction.delete_original_response()
+        return await interaction.response.send_message("Let The Waifu Battles Begin!", delete_after = 5.0)
 
 # Commands
 @tree.command(name="configure", description="Configure waifu game")

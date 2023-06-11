@@ -171,12 +171,12 @@ game = WaifuBattleGameBot()
 #%% Sample app
 
 import os, discord
-from discord.ext import commands
+# from discord.ext import commands
 from discord import app_commands
 
-import subprocess
-import sys
-import time
+# import subprocess
+# import sys
+# import time
 
 # import nest_asyncio
 # nest_asyncio.apply()
@@ -258,6 +258,28 @@ async def configure(interaction):
 @tree.command(name="stop", description="Stop the waifu game")
 async def stop(interaction):
     game.force_end()
+    await interaction.response.send_message(content="Game ended")
+    
+@tree.command(name="submit", description="submit a card")
+async def submit(interaction, url, tag = "base"):
+    """
+    
+
+    Parameters
+    ----------
+    interaction : discord.interaction
+        DESCRIPTION.
+    url : str
+        url of the waifu to use as a card.
+    tag : str, optional
+        for easy search and grouping for specifig game types. The default is "base".
+
+    Returns
+    -------
+    None.
+
+    """
+    game.add_card(url,tag,interaction.user.name)
     await interaction.response.send_message(content="Game ended")
 
     

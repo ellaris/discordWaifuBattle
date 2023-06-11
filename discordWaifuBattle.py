@@ -8,6 +8,7 @@ import random
 import threading
 import re
 import json
+import asyncio
 
 # card_database = [
 #     {
@@ -65,6 +66,7 @@ class WaifuBattleGame:
     game_types = ["Pretty","Ugly","Fat","Booba","Flat","Skinny"]
     playing_cards = []
     card_database = []
+    loop = None
     
     JSON_FILE_NAME = "waifu_cards.json"
     
@@ -83,6 +85,7 @@ class WaifuBattleGame:
     
     def __init__(self):
         self.load_json_db()
+        self.loop = asyncio.get_running_loop()
 
     def configure(self, play_rounds = 4, cards = card_database, selected_type = "", selected_timer = 60.0, allowed_cards = ""):
         self.rounds = play_rounds
@@ -90,7 +93,7 @@ class WaifuBattleGame:
         self.players = []
         self.game_type = selected_type
         self.timer = selected_timer
-        if allowed_cards == "":
+        if allowed_cards != "":
             self.playing_cards = [card["url"] for card in  self.card_database if re.search(allowed_cards,card["tag"]) ]
         else:
             self.playing_cards =  self.card_database.copy()
@@ -143,8 +146,9 @@ class WaifuBattleGame:
         
         self.voting = False
         # choosing time!
-        t = threading.Timer(1,  self.run_timer)
-        t.start()
+        # t = threading.Timer(1, self.run_timer)
+        # t.start()
+        self.loop.create_task(self.run_timer())
         # choose()
         
     def force_end(self):
@@ -168,8 +172,9 @@ class WaifuBattleGame:
         self.display_mode()
         
         # voting time!
-        t = threading.Timer(1, self.run_timer)
-        t.start()
+        # t = threading.Timer(1, self.run_timer)
+        # t.start()
+        self.loop.create_task(self.run_timer())
         # vote()
         
     def collect_votes(self):
@@ -205,8 +210,9 @@ class WaifuBattleGame:
             self.display_hand(p)
         
         # choosing time
-        t = threading.Timer(1, self.run_timer)
-        t.start()
+        # t = threading.Timer(1, self.run_timer)
+        # t.start()
+        self.loop.create_task(self.run_timer())
         
     def game_end(self):
         self.display_scores()
@@ -261,9 +267,10 @@ class WaifuBattleGame:
     def display_time(self, time_left):
         print(f"{time_left}")
             
-    def run_timer(self):
+    async def run_timer(self):
         self.time_left = int(self.timer_value)
         end_timer = False
+        await asyncio.sleep(1)
         
         if self.voting:
             # check if everyone voted
@@ -290,6 +297,7 @@ class WaifuBattleGame:
         if self.time_left <= 3:
             self.display_time(self.time_left)
         if self.time_left >= 1:
-            t = threading.Timer(1, self.run_timer)
-            t.start()
+            # t = threading.Timer(1, self.run_timer)
+            # t.start()
+            self.loop.create_task(self.run_timer())
     

@@ -115,24 +115,30 @@ class WaifuBattleGame:
     def choose(self, player_name, card_index):
         # player_name = input("p:")
         # card_index = input("i:")
+        success = False
         player = None
         for p in  self.players:
             if p.name == player_name:
                 player = p
                 break
-        if player:
+        if player and player.field == "":
             player.playCard(int(card_index))
+            success = True
+        return success
         
     def vote(self, player_name, card_index):
         # player_name = input("p:")
         # card_index = input("i:")
+        success = False
         player = None
         for p in  self.players:
             if p.name == player_name:
                 player = p
                 break
-        if player:
+        if player and player.vote == -1:
             player.registerVote(int(card_index))
+            success = True
+        return success
             
     def start(self):
         self.timer_value =  self.timer
@@ -228,7 +234,10 @@ class WaifuBattleGame:
         print(mode_str)
     
     def display_round(self):
-        print(f"Round {self.current_round}")
+        gt = self.game_type
+        if self.game_type == "":
+            gt = self.game_types[random.randint(0, len(self.game_types)-1)]
+        print(f"Round {self.current_round}\nCategory: {gt}")
         
     def display_vote_results(self, votes):
         vote_str = "Votes\n"
@@ -237,11 +246,8 @@ class WaifuBattleGame:
         print(vote_str)
         
     def display_field(self, field):
-        gt = self.game_type
         field_str = ""
-        if self.game_type == "":
-            gt = self.game_types[random.randint(0, len(self.game_types)-1)]
-        field_str += f"Vote for: {gt}\n"
+        field_str += "Vote \n"
         for card in field:
             field_str += f"{card}\n"
         print(field_str)

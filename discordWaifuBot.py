@@ -47,19 +47,21 @@ class WaifuBattleGameBot(WaifuBattleGame):
         super().configure(play_rounds, cards, selected_type, selected_timer, allowed_cards)
         self.game_channel = channel
         
-    async def sendPrintStack(self, embeds = None, view = None, new_message = False):
+    async def sendPrintStack(self, embeds = None, view = None, new_message = False, file = None):
         content = "\n".join(self.print_stack)
         self.print_stack = []
         if new_message or not self.message:
-            if embeds and view:
-                self.message = await self.game_channel.send(content=content, embeds = embeds, view = view)
-            elif embeds:
-                self.message = await self.game_channel.send(content=content, embeds = embeds)
-            elif view:
-                self.message = await self.game_channel.send(content=content, view = view)
-            else:
-                self.message = await self.game_channel.send(content=content)
+            # if embeds and view:
+            #     self.message = await self.game_channel.send(content=content, embeds = embeds, view = view)
+            # elif embeds:
+            #     self.message = await self.game_channel.send(content=content, embeds = embeds)
+            # elif view:
+            #     self.message = await self.game_channel.send(content=content, view = view)
+            # else:
+            #     self.message = await self.game_channel.send(content=content)
+            self.message = await self.game_channel.send(content=content, embeds = embeds, view = view, file = file)
         else:
+            content = self.message.content +"\n"+content
             if embeds and view:
                 await self.message.edit(content = content, embeds = embeds, view = view)
             elif embeds:
@@ -81,7 +83,11 @@ class WaifuBattleGameBot(WaifuBattleGame):
         self.print_stack.append(mode_str)
     
     def display_round(self):
-        self.print_stack.append(f"Round {self.current_round}")
+        gt = self.game_type
+        if self.game_type == "":
+            gt = self.game_types[random.randint(0, len(self.game_types)-1)]
+        self.print_stack.append(f"Round {self.current_round}\nCategory: {gt}")
+        loop.create_task( self.sendPrintStack(new_message=True))
         
     def display_vote_results(self, votes):
         vote_str = "Votes\n"
@@ -92,23 +98,32 @@ class WaifuBattleGameBot(WaifuBattleGame):
         
         
     def display_field(self, field):
-        gt = self.game_type
+        
         field_str = ""
-        if self.game_type == "":
-            gt = self.game_types[random.randint(0, len(self.game_types)-1)]
-        field_str += f"Vote for: {gt}\n"
+        field_str += "Vote\n"
         embeds = []
-        view = discord.ui.View()
+        view = discord.ui.View(timeout = self.timer)
+        cards = []
         for i,card in enumerate(field):
-            embed = discord.Embed()
-            embed.set_image(url=card)
-            embeds.append(embed)
+            # embed = discord.Embed()
+            # embed.set_image(url=card["url"])
+            cards.append(card["url"])
+            # embeds.append(embed)
             button = ChooseVoteButton(value= i, view = view, label = str(i))
             # button.callback = lambda (name: discord.user): self.vote(name,i)
             view.add_item(button)
             
+        image_grid(cards)
+        
+        # embed.set_author(name=user.name,icon_url=user.avatar.url)
+        # embed.set_thumbnail(url=bot.user.avatar.url)
+        file = discord.File("grid.png", filename="image.png")
+        embed = discord.Embed()
+        embed.set_image(url="attachment://image.png")
+        embeds = [embed]
+            
         self.print_stack.append(field_str)
-        loop.create_task( self.sendPrintStack(embeds=embeds, view = view, new_message=True))
+        loop.create_task( self.sendPrintStack(embeds=embeds, view = view, new_message=True, file = file))
         
     def display_scores(self, compact=False):
         sorted_players = sorted(self.players, key = lambda player: player.score, reverse=True)
@@ -125,24 +140,32 @@ class WaifuBattleGameBot(WaifuBattleGame):
         # hand_str = ""
         # hand_str += player.name+"\n"
         embeds = []
-        view = discord.ui.View()
+        view = discord.ui.View(timeout = self.timer)
+        cards = []
         for i, card in enumerate(player.cards):
             # hand_str += f"{card} \n"
-            embed = discord.Embed()
-            embed.set_image(url=card)
-            embeds.append(embed)
+            # embed = discord.Embed()
+            # print(card["url"])
+            # embed.set_image(url=card["url"])
+            cards.append(card["url"])
+            # embeds.append(embed)
             button = ChooseVoteButton(value= i, view = view, label = str(i))
             view.add_item(button)
             
         # self.print_stack.append(hand_str)
-        
+        image_grid(cards)
         
         # embed.set_author(name=user.name,icon_url=user.avatar.url)
         # embed.set_thumbnail(url=bot.user.avatar.url)
-        loop.create_task( self.player_deliver(player, embeds, view))
+        file = discord.File("grid.png", filename="image.png")
+        embed = discord.Embed()
+        embed.set_image(url="attachment://image.png")
+        embeds = [embed]
         
-    async def player_deliver(self, player,embeds,view):
-        await player.webhook.send(content = "Hand", embeds=embeds, ephemeral = True, view = view)
+        loop.create_task( self.player_deliver(player, embeds, view,file))
+        
+    async def player_deliver(self, player,embeds,view, file = None):
+        await player.webhook.send(content = "Your Hand:", embeds=embeds, ephemeral = True, view = view, file = file)
             
     def display_time(self, time_left):
         self.print_stack.append(f"{time_left}")
@@ -209,12 +232,12 @@ class ChooseVoteButton(discord.ui.Button):
     async def callback(self, interaciton: discord.Interaction):
         username = interaciton.user.name
         if game.voting:
-            game.vote(username, self.value)
-            await interaciton.response.send_message(content= f"voted for {self.value}",ephemeral = True, delete_after = 5)
+            if game.vote(username, self.value):
+                await interaciton.response.send_message(content= f"voted for {self.value}",ephemeral = True, delete_after = 3)
         else:
-            game.choose(username, self.value)
-            await interaciton.response.send_message(content= f"{self.value} chosen",ephemeral = True, delete_after = 5)
-        self.view.stop()
+            if game.choose(username, self.value):
+                await interaciton.response.send_message(content= f"{self.value} chosen",ephemeral = True, delete_after = 3)
+        # self.view.stop()
     
 class JoinView(discord.ui.View):
     
@@ -229,10 +252,15 @@ class JoinView(discord.ui.View):
         if not self.joined:
             username = interaction.user.name
             webhook = interaction.followup
-            game.join(username, webhook)
+            players = [player.name for player in game.players]
+            if not username in players:
+                game.join(username, webhook)
+            players = [player.name for player in game.players]
+            ready_players = " is ready\n".join(players)+" is ready\n"
+            await interaction.message.edit(content=interaction.message.content+"\n"+ready_players)
             # webhook.send(content="You successfully joined the game", ephemeral=True)
         
-        self.joined = True
+        # self.joined = True
         # self.stop()
         return await interaction.response.send_message("You successfully joined the game",ephemeral=True, delete_after= 3.0)
 
@@ -246,11 +274,11 @@ class JoinView(discord.ui.View):
 
 # Commands
 @tree.command(name="configure", description="Configure waifu game")
-async def configure(interaction):
+async def configure(interaction, play_rounds : int = 4, round_timer : float = 60.0, game_type : str = "", card_tags : str = ""):
     # await interaction.response.send_message(content="")
     view = JoinView()
-    game.configure(interaction.channel, selected_timer=4.0)
-    await interaction.response.send_message(content="Get ready for waifu battles!", view = view)
+    game.configure(interaction.channel, play_rounds = play_rounds, selected_timer=round_timer, selected_type = game_type, allowed_cards = card_tags)
+    await interaction.response.send_message(content=f"Get ready for waifu Battles!\nRounds: {game.rounds}\nTimer: {game.timer}\nCategory: {game.game_type}\nParticipants:\n", view = view)
     # await view.wait()
     # print(view.value)
     # await msg.delete()
@@ -261,7 +289,7 @@ async def stop(interaction):
     await interaction.response.send_message(content="Game ended")
     
 @tree.command(name="submit", description="submit a card")
-async def submit(interaction, url, tag = "base"):
+async def submit(interaction, url : str, tag : str = "base"):
     """
     
 
@@ -282,7 +310,40 @@ async def submit(interaction, url, tag = "base"):
     game.add_card(url,tag,interaction.user.name)
     await interaction.response.send_message(content="Game ended")
 
+import PIL
+from PIL import Image
+import math
+import requests # request img from web
+import shutil # save img locally
+
+def image_grid(imgs):
+    # assert len(imgs) == rows*cols
+    cols = 5
+    rows =  math.ceil(len(imgs)/5)
     
+    mywidth = 300
+    
+    w = mywidth
+    h = mywidth
+    grid = Image.new('RGBA', size=(cols*w, rows*h))
+    
+    for i, img in enumerate(imgs):
+        # download the image
+        res = requests.get(img, stream = True)
+        filename = "image"+str(i)+".png"
+        if res.status_code == 200:
+            with open(filename,'wb') as f:
+                shutil.copyfileobj(res.raw, f)
+        
+
+            img = Image.open(filename)
+            wpercent = (mywidth/float(img.size[0]))
+            hsize = int((float(img.size[1])*float(wpercent)))
+            img = img.resize((mywidth,hsize), PIL.Image.ANTIALIAS)
+            # img.save('resized.jpg')
+            grid.paste(img, box=(i%cols*w, i//cols*h))
+        grid.save("grid.png")
+    return grid
     
     
 # # Commands
